@@ -1,4 +1,4 @@
-FROM openresty/openresty:alpine-fat AS builder
+FROM --platform=linux/amd64 openresty/openresty:alpine-fat AS builder
 
 RUN apk add --update --no-cache \
     git pcre-dev openldap-dev \
@@ -26,7 +26,7 @@ RUN cd /usr/local/src/apisix-$APISIX_VERSION \
     && rm -Rf /usr/local/src
 
 #FROM alpine AS scratch
-FROM openresty/openresty:alpine AS scratch
+FROM --platform=linux/amd64 openresty/openresty:alpine AS scratch
 
 RUN apk add --update --no-cache \
     openssl bash pcre openldap
