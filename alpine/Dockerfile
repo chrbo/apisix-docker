@@ -1,4 +1,7 @@
-FROM --platform=linux/amd64 openresty/openresty:alpine-fat AS builder
+ARG BASEIMAGE_VERSION=1.25.3.1-1-
+
+#FROM alpine-fat AS builder
+FROM --platform=linux/amd64 openresty/openresty:${BASEIMAGE_VERSION}alpine-fat AS builder
 
 RUN apk add --update --no-cache \
     git pcre-dev openldap-dev \
@@ -26,7 +29,7 @@ RUN cd /usr/local/src/apisix-$APISIX_VERSION \
     && rm -Rf /usr/local/src
 
 #FROM alpine AS scratch
-FROM --platform=linux/amd64 openresty/openresty:alpine AS scratch
+FROM --platform=linux/amd64 openresty/openresty:${BASEIMAGE_VERSION}alpine AS scratch
 
 RUN apk add --update --no-cache \
     openssl bash pcre openldap
@@ -54,6 +57,5 @@ COPY ./docker-entrypoint.sh /docker-entrypoint.sh
 ENTRYPOINT ["/docker-entrypoint.sh"]
 
 CMD ["docker-start"]
-
 
 STOPSIGNAL SIGQUIT
