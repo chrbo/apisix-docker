@@ -34,6 +34,7 @@ RUN set -x \
         sudo \
         unzip \
         wget \
+        libyaml-dev \
     && curl https://raw.githubusercontent.com/apache/apisix/master/utils/linux-install-luarocks.sh -sL | bash - \
     && luarocks install https://raw.githubusercontent.com/apache/apisix/master/apisix-master-0.rockspec --tree=/usr/local/apisix/deps PCRE_DIR=/usr/local/openresty/pcre \
     && cp -v /usr/local/apisix/deps/lib/luarocks/rocks-5.1/apisix/master-0/bin/apisix /usr/bin/ \
@@ -64,6 +65,7 @@ ENV PATH=$PATH:/usr/local/openresty/luajit/bin:/usr/local/openresty/nginx/sbin:/
 EXPOSE 9080 9443
 
 COPY ./docker-entrypoint.sh /docker-entrypoint.sh
+COPY ./utils/check_standalone_config.sh /check_standalone_config.sh
 
 ENTRYPOINT ["/docker-entrypoint.sh"]
 

@@ -17,7 +17,7 @@
 
 FROM debian:bullseye-slim
 
-ARG APISIX_VERSION=3.8.0
+ARG APISIX_VERSION=3.11.0
 
 RUN set -ex; \
     arch=$(dpkg --print-architecture); \
@@ -64,6 +64,7 @@ RUN ln -sf /dev/stdout /usr/local/apisix/logs/access.log \
 EXPOSE 9080 9443
 
 COPY ./docker-entrypoint.sh /docker-entrypoint.sh
+COPY ./check_standalone_config.sh /check_standalone_config.sh
 
 ENTRYPOINT ["/docker-entrypoint.sh"]
 

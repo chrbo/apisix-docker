@@ -17,7 +17,7 @@
 
 FROM registry.access.redhat.com/ubi8/ubi:8.6
 
-ARG APISIX_VERSION=3.8.0
+ARG APISIX_VERSION=3.11.0
 LABEL apisix_version="${APISIX_VERSION}"
 COPY ./yum.repos.d/apache-apisix.repo /etc/yum.repos.d/apache-apisix.repo
 COPY ./yum.repos.d/openresty.repo /etc/yum.repos.d/openresty.repo
@@ -43,6 +43,7 @@ RUN ln -sf /dev/stdout /usr/local/apisix/logs/access.log \
 EXPOSE 9080 9443
 
 COPY ./docker-entrypoint.sh /docker-entrypoint.sh
+COPY ./check_standalone_config.sh /check_standalone_config.sh
 
 ENTRYPOINT ["/docker-entrypoint.sh"]
 

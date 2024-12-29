@@ -23,9 +23,9 @@ jobs:
       - name: Build and run
         run: |
           make build-dashboard-${{ matrix.os }}
-          docker-compose -f ./compose/dashboard-compose.yaml up -d
+          docker compose -f ./compose/dashboard-compose.yaml up -d
           sleep 30
-          docker logs compose_dashboard_1
+          docker logs compose-dashboard-1
 
       - name: check
         run: |
@@ -38,7 +38,7 @@ jobs:
           make save-dashboard-${{ matrix.os }}-tar
 
       - name: Upload Image
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v4
         with:
           path: ./package
 
