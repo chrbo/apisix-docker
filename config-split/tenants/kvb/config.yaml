@@ -1,0 +1,632 @@
+routes:
+  ######################################################################
+  # KVB API routes                                                     #
+  ######################################################################
+  - host: kvb-testdev-api.healthmatch.cloud.vitaservices-dev.de
+    uri: "/realms/*"
+    vars:
+      - "AND"
+      - - "request_uri"
+        - "~~"
+        - '^/realms/testdev-healthmatch(|/\.well-known/openid-configuration|/protocol/openid-connect/certs)$'
+      - - "request_method"
+        - "=="
+        - "GET"
+    upstream_id: upstream-keycloak
+
+  - host: kvb-testdev-api.healthmatch.cloud.vitaservices-dev.de
+    uri: "/patient/core/*"
+    vars:
+      - "AND"
+      - - "uri"
+        - "=="
+        - "/patient/core/v1/patients/registration/resend-tan-code"
+      - - "request_method"
+        - "=="
+        - "POST"
+    plugin_config_id: pluginconfig-patient-KVB
+    plugins:
+      limit-count:
+        count: 1
+        time_window: 60
+        key_type: var
+        key: remote_addr
+        policy: local
+        rejected_code: 429
+        rejected_msg: "Rate limit exceeded!"
+    upstream_id: upstream-apicore
+
+  - host: kvb-testdev-api.healthmatch.cloud.vitaservices-dev.de
+    uri: "/patient/core/*"
+    vars:
+      - "OR"
+      - - "AND"
+        - - "OR"
+          - - "uri"
+            - "=="
+            - "/patient/core/v1/support/contact"
+          - - "uri"
+            - "=="
+            - "/patient/core/v1/patients/registration"
+          - - "uri"
+            - "=="
+            - "/patient/core/v1/patients/registration/resend-email"
+        - - "request_method"
+          - "=="
+          - "POST"
+      - - "AND"
+        - - "uri"
+          - "=="
+          - "/patient/core/v1/dispomed/validate"
+        - - "request_method"
+          - "=="
+          - "GET"
+    plugin_config_id: pluginconfig-patient-KVB
+    plugins:
+      limit-count:
+        count: 1
+        time_window: 120
+        key_type: var_combination
+        key: "$remote_addr $uri"
+        policy: local
+        rejected_code: 429
+        rejected_msg: "Rate limit exceeded!"
+    upstream_id: upstream-apicore
+
+  - host: kvb-testdev-api.healthmatch.cloud.vitaservices-dev.de
+    uri: "/patient/core/*"
+    plugin_config_id: pluginconfig-patient-KVB
+    upstream_id: upstream-apicore
+
+  - host: kvb-testdev-api.healthmatch.cloud.vitaservices-dev.de
+    uri: "/patient/document/*"
+    plugin_config_id: pluginconfig-patient-KVB
+    upstream_id: upstream-apidocument
+
+  ######################################################################
+  # KVB UCRI routes                                                    #
+  ######################################################################
+  - host: kvb-testdev-ucri.healthmatch.cloud.vitaservices-dev.de
+    uri: "/api/authorize"
+    plugin_config_id: pluginconfig-ucriauthorize-KVB
+    upstream_id: upstream-keycloak
+
+  - host: kvb-testdev-ucri.healthmatch.cloud.vitaservices-dev.de
+    uri: "/realms/testdev-healthmatch/.well-known/openid-configuration"
+    plugins:
+      proxy-rewrite:
+        headers:
+          set:
+            X-FORWARDED-HOST: "kvb-testdev-ucri.healthmatch.cloud.vitaservices-dev.de"
+            X-FORWARDED-PORT: "443"
+            X-FORWARDED-PROTO: "https"
+    upstream_id: upstream-keycloak
+
+  - host: kvb-testdev-ucri.healthmatch.cloud.vitaservices-dev.de
+    uri: "/realms/testdev-healthmatch/protocol/openid-connect/certs"
+    plugins:
+      proxy-rewrite:
+        headers:
+          set:
+            X-FORWARDED-HOST: "kvb-testdev-ucri.healthmatch.cloud.vitaservices-dev.de"
+            X-FORWARDED-PORT: "443"
+            X-FORWARDED-PROTO: "https"
+    upstream_id: upstream-keycloak
+
+  - host: kvb-testdev-ucri.healthmatch.cloud.vitaservices-dev.de
+    uri: "/*"
+    vars:
+      - "OR"
+      - - "AND"
+        - - "request_uri"
+          - "~~"
+          - "^/api/incidents$"
+        - - "request_method"
+          - "=="
+          - "POST"
+      - - "AND"
+        - - "request_uri"
+          - "~~"
+          #- "^/api/incidents/%x%x%x%x%x%x%x%x%-%x%x%x%x%-%x%x%x%x%-%x%x%x%x%-%x%x%x%x%x%x%x%x%x%x%x%x/acknowledgments/(confirm|retrieved)$" if we are save that it is a guid
+          - "^/api/incidents/.+/acknowledgements/(confirm|retrieved)$"
+        - - "request_method"
+          - "=="
+          - "PUT"
+    plugin_config_id: pluginconfig-ucri-KVB
+    upstream_id: upstream-apicore
+
+  ######################################################################
+  # KVB patient routes                                                 #
+  ######################################################################
+  - host: kvb-testdev-patient.healthmatch.cloud.vitaservices-dev.de
+    uri: "/realms/testdev-healthmatch/*"
+    vars:
+      - "AND"
+      - - "uri"
+        - "=="
+        - "/realms/testdev-healthmatch/login-actions/reset-credentials"
+      - - "request_method"
+        - "=="
+        - "POST"
+    plugins:
+      limit-count:
+        count: 6
+        time_window: 180
+        key_type: var
+        key: remote_addr
+        policy: local
+        rejected_code: 429
+        rejected_msg: "Rate limit exceeded!"
+    upstream_id: upstream-keycloak
+
+  - host: kvb-testdev-patient.healthmatch.cloud.vitaservices-dev.de
+    uri: "/realms/testdev-healthmatch/*"
+    plugins:
+      proxy-rewrite:
+        headers:
+          set:
+            X-FORWARDED-HOST: "kvb-testdev-patient.healthmatch.cloud.vitaservices-dev.de"
+            X-FORWARDED-PORT: "443"
+            X-FORWARDED-PROTO: "https"
+    upstream_id: upstream-keycloak
+
+  - host: kvb-testdev-patient.healthmatch.cloud.vitaservices-dev.de
+    uri: "/resources/*"
+    plugins:
+      proxy-rewrite:
+        headers:
+          set:
+            X-FORWARDED-HOST: "kvb-testdev-patient.healthmatch.cloud.vitaservices-dev.de"
+            X-FORWARDED-PORT: "443"
+            X-FORWARDED-PROTO: "https"
+    upstream_id: upstream-keycloak
+
+  - host: kvb-testdev-patient.healthmatch.cloud.vitaservices-dev.de
+    uri: /mailcatcher/*
+    enable_websocket: true
+    plugins:
+      basic-auth:
+        hide_credentials: true
+      consumer-restriction:
+        whitelist:
+          - consumer-patient-KVB
+      response-rewrite:
+        headers:
+          set:
+            Content-Security-Policy: "frame-ancestors 'none';"
+    upstream_id: upstream-mail
+
+  - host: kvb-testdev-patient.healthmatch.cloud.vitaservices-dev.de
+    uri: /erste-schritte
+    plugins:
+      basic-auth:
+        hide_credentials: true
+      consumer-restriction:
+        whitelist:
+          - consumer-patient-KVB
+      redirect:
+        uri: "/support-and-service/getting-started"
+    upstream_id: upstream-patient-KVB
+
+  - host: kvb-testdev-patient.healthmatch.cloud.vitaservices-dev.de
+    uri: /*
+    plugins:
+      basic-auth:
+        hide_credentials: true
+      consumer-restriction:
+        whitelist:
+          - consumer-patient-KVB
+      response-rewrite:
+        headers:
+          set:
+            Content-Security-Policy: "frame-ancestors 'none';"
+    upstream_id: upstream-patient-KVB
+
+  ######################################################################
+  # KVB doctors, disponents, admin and nurse routes                    #
+  ######################################################################
+  - host: kvb-testdev-doktor-disponent.healthmatch.cloud.vitaservices-dev.de
+    uri: "/doctor-disponent/core/*"
+    plugin_config_id: pluginconfig-doctordisponent-api-KVB
+    upstream_id: upstream-apicore
+
+  - host: kvb-testdev-doktor-disponent.healthmatch.cloud.vitaservices-dev.de
+    uri: "/doctor-disponent/document/*"
+    plugin_config_id: pluginconfig-doctordisponent-api-KVB
+    upstream_id: upstream-apidocument
+
+  - host: kvb-testdev-doktor-disponent.healthmatch.cloud.vitaservices-dev.de
+    uri: /mailcatcher/*
+    enable_websocket: true
+    plugins:
+      basic-auth:
+        hide_credentials: true
+      consumer-restriction:
+        whitelist:
+          - consumer-doctor-KVB
+      response-rewrite:
+        headers:
+          set:
+            Content-Security-Policy: "frame-ancestors 'none';"
+    upstream_id: upstream-mail
+
+  - host: kvb-testdev-doktor-disponent.healthmatch.cloud.vitaservices-dev.de
+    uri: /assets/refresh-session-page/refresh-session-page.html
+    plugins:
+      response-rewrite:
+        headers:
+          set:
+            Content-Security-Policy: "frame-ancestors 'self';"
+    plugin_config_id: pluginconfig-doctordisponent-app-KVB
+    upstream_id: upstream-doctor-KVB
+
+  - host: kvb-testdev-doktor-disponent.healthmatch.cloud.vitaservices-dev.de
+    uri: /*
+    plugin_config_id: pluginconfig-doctordisponent-app-KVB
+    upstream_id: upstream-doctor-KVB
+
+  ######################################################################
+  # KVB dummy argus (keycloak) idp routes                              #
+  ######################################################################
+  - host: kvb-testdev-argus.healthmatch.cloud.vitaservices-dev.de
+    uri: /*
+    plugins:
+      proxy-rewrite:
+        headers:
+          set:
+            X-FORWARDED-HOST: kvb-testdev-argus.healthmatch.cloud.vitaservices-dev.de
+            X-FORWARDED-PROTO: https
+            X-FORWARDED-PORT: 443
+    upstream_id: upstream-keycloak
+
+  ######################################################################
+  # KVB nurse routes                                                   #
+  ######################################################################
+  - host: kvb-testdev-nurse.healthmatch.cloud.vitaservices-dev.de
+    uri: "/doctor-disponent/core/*"
+    plugin_config_id: pluginconfig-nurse-api-KVB
+    upstream_id: upstream-apicore
+
+  - host: kvb-testdev-nurse.healthmatch.cloud.vitaservices-dev.de
+    uri: "/doctor-disponent/document/*"
+    plugin_config_id: pluginconfig-nurse-api-KVB
+    upstream_id: upstream-apidocument
+
+  - host: kvb-testdev-nurse.healthmatch.cloud.vitaservices-dev.de
+    uri: "/realms/testdev-healthmatch/*"
+    plugins:
+      proxy-rewrite:
+        headers:
+          set:
+            X-FORWARDED-HOST: "kvb-testdev-nurse.healthmatch.cloud.vitaservices-dev.de"
+            X-FORWARDED-PORT: "443"
+            X-FORWARDED-PROTO: "https"
+    upstream_id: upstream-keycloak
+
+  - host: kvb-testdev-nurse.healthmatch.cloud.vitaservices-dev.de
+    uri: "/resources/*"
+    plugins:
+      proxy-rewrite:
+        headers:
+          set:
+            X-FORWARDED-HOST: "kvb-testdev-nurse.healthmatch.cloud.vitaservices-dev.de"
+            X-FORWARDED-PORT: "443"
+            X-FORWARDED-PROTO: "https"
+    upstream_id: upstream-keycloak
+
+  - host: kvb-testdev-nurse.healthmatch.cloud.vitaservices-dev.de
+    uri: "/assets/app-settings.json"
+    plugin_config_id: pluginconfig-nurse-app-KVB
+    plugins:
+      response-rewrite:
+        filters:
+          - scope: "global"
+            regex: "kvb-testdev-doktor-disponent"
+            replace: "kvb-testdev-nurse"
+      proxy-rewrite:
+        headers:
+          remove:
+            - "accept-encoding"
+    upstream_id: upstream-doctor-KVB
+
+  - host: kvb-testdev-nurse.healthmatch.cloud.vitaservices-dev.de
+    uri: "/*"
+    plugin_config_id: pluginconfig-nurse-app-KVB
+    upstream_id: upstream-doctor-KVB
+
+  - host: kvb-testdev-nurse.healthmatch.cloud.vitaservices-dev.de
+    uri: "/mailcatcher/*"
+    enable_websocket: true
+    plugins:
+      basic-auth:
+        hide_credentials: true
+      consumer-restriction:
+        whitelist:
+          - consumer-nurse-KVB
+      response-rewrite:
+        headers:
+          set:
+            Content-Security-Policy: "frame-ancestors 'none';"
+    upstream_id: upstream-mail
+
+  - host: kvb-testdev-nurse.healthmatch.cloud.vitaservices-dev.de
+    uri: "/mailcatchersplit/*"
+    enable_websocket: true
+    plugin_config_id: pluginconfig-nurse-mailsplit
+    plugins:
+      traffic-split:
+        rules:
+          - match:
+              - vars:
+                  - - "http_x-user-organization"
+                    - "=="
+                    - "kvb"
+            weighted_upstreams:
+              - upstream_id: upstream-mail-KVB
+      response-rewrite:
+        headers:
+          set:
+            Content-Security-Policy: "frame-ancestors 'self';"
+    upstream_id: upstream-mail
+
+  ######################################################################
+  # KVB dashboard routes                                               #
+  ######################################################################
+  - host: kvb-testdev-dashboards.healthmatch.cloud.vitaservices-dev.de
+    uri: /*
+    plugin_config_id: pluginconfig-dashboard-KVB
+    upstream_id: upstream-dashboard
+    plugins:
+      limit-count:
+        count: 100
+        burst: 50
+        time_window: 1
+        key_type: var
+        key: remote_addr
+        policy: local
+        rejected_code: 429
+        rejected_msg: "Rate limit exceeded!"
+
+plugin_configs:
+  ######################################################################
+  # KVB plugin_configs                                                 #
+  ######################################################################
+  - id: pluginconfig-doctordisponent-app-KVB
+    plugins:
+      openid-connect:
+        _meta:
+          filter:
+            - - "uri"
+              - "!"
+              - "~*"
+              - '^.*\.(js|js\.map|ico|css|css\.map|woff2|woff|json|svg|png|txt)$'
+        client_id: "${{PLUGINCONFIG_DOCTORDISPONENT_APP_OIDCCLIENTID_KVB}}"
+        client_secret: "${{PLUGINCONFIG_DOCTORDISPONENT_APP_OIDCCLIENTSECRET_KVB}}"
+        discovery: "https://kvb-testdev-argus.healthmatch.cloud.vitaservices-dev.de/realms/testdev-argus/.well-known/openid-configuration"
+        bearer_only: false
+        scope: "openid"
+        redirect_uri: "/callback/sso"
+        logout_path: "/logout"
+        access_token_in_authorization_header: true
+        session:
+          secret: "${{PLUGINCONFIG_DOCTORDISPONENT_APP_SESSIONSECRET_KVB}}"
+      proxy-rewrite:
+        headers:
+          remove:
+            - "cookie"
+          set:
+            X-Tenant-Id: "kvb"
+      response-rewrite:
+        headers:
+          set:
+            Content-Security-Policy: "frame-ancestors 'none';"
+
+  - id: pluginconfig-doctordisponent-api-KVB
+    plugins:
+      openid-connect:
+        client_id: "${{PLUGINCONFIG_DOCTORDISPONENT_API_OIDCCLIENTID_KVB}}"
+        client_secret: "${{PLUGINCONFIG_DOCTORDISPONENT_API_OIDCCLIENTSECRET_KVB}}"
+        discovery: "https://kvb-testdev-argus.healthmatch.cloud.vitaservices-dev.de/realms/testdev-argus/.well-known/openid-configuration"
+        bearer_only: false
+        scope: "openid"
+        redirect_uri: "/callback/sso"
+        logout_path: "/logout"
+        access_token_in_authorization_header: true
+        unauth_action: deny
+        session:
+          secret: "${{PLUGINCONFIG_DOCTORDISPONENT_API_SESSIONSECRET_KVB}}"
+      proxy-rewrite:
+        regex_uri: [ "^/doctor-disponent/(document|core)/(.*)$", "/$2" ]
+        headers:
+          remove:
+            - "cookie"
+          set:
+            X-Tenant-Id: "kvb"
+
+  # seems not to be used
+  #- id: pluginconfig-patient-app-KVB
+  #  plugins:
+  #    cors:
+  #      allow_origins: "https://kvb-testdev-patient.healthmatch.cloud.vitaservices-dev.de"
+  #    proxy-rewrite:
+  #      regex_uri: [ "^/patient/(document|core)/(.*)$", "/$2" ]
+  #      headers:
+  #        set:
+  #          X-Tenant-Id: "kvb"
+
+  - id: pluginconfig-ucriauthorize-KVB
+    plugins:
+      ucri-auth-2-oauth:
+        token_endpoint: "/realms/testdev-healthmatch/protocol/openid-connect/token"
+
+  - id: pluginconfig-ucri-KVB
+    plugins:
+      proxy-rewrite:
+        regex_uri: [ "^/api/(.*)$", "/v1/dispomed/$1" ]
+        headers:
+          set:
+            X-Tenant-Id: "kvb"
+      # @todo rewrite paths in body
+
+  - id: pluginconfig-dashboard-KVB
+    plugins:
+      openid-connect:
+        _meta:
+          filter:
+            - - "uri"
+              - "!"
+              - "~*"
+              - '^.*\.(js|js\.map|ico|css|css\.map|woff2|woff|json|svg|png|txt)$'
+        client_id: "${{PLUGINCONFIG_DASHBOARD_OIDCCLIENTID_KVB}}"
+        client_secret: "${{PLUGINCONFIG_DASHBOARD_OIDCCLIENTSECRET_KVB}}"
+        discovery: "https://kvb-testdev-argus.healthmatch.cloud.vitaservices-dev.de/realms/testdev-argus/.well-known/openid-configuration"
+        bearer_only: false
+        scope: "openid"
+        redirect_uri: "/callback/sso"
+        logout_path: "/logout"
+        access_token_in_authorization_header: true
+        session:
+          secret: "${{PLUGINCONFIG_DASHBOARD_SESSIONSECRET_KVB}}"
+      proxy-rewrite:
+        headers:
+          remove:
+            - "authorization"
+
+  - id: pluginconfig-nurse-app-KVB
+    plugins:
+      openid-connect:
+        _meta:
+          filter:
+            - "AND"
+            - - "uri"
+              - "!"
+              - "~*"
+              - '^.*\.(js|js\.map|ico|css|css\.map|woff2|woff|json|svg|png)$'
+            - - "uri"
+              - "!"
+              - "~*"
+              - "^.*/ng-cli-ws$"
+        client_id: "${{PLUGINCONFIG_NURSE_APP_OIDCCLIENTID_KVB}}"
+        client_secret: "${{PLUGINCONFIG_NURSE_APP_OIDCCLIENTSECRET_KVB}}"
+        discovery: "https://kvb-testdev-nurse.healthmatch.cloud.vitaservices-dev.de/realms/testdev-healthmatch/.well-known/openid-configuration"
+        bearer_only: false
+        scope: "openid"
+        redirect_uri: "/callback/sso"
+        logout_path: "/logout"
+        post_logout_redirect_uri: "https://kvb-testdev-nurse.healthmatch.cloud.vitaservices-dev.de/"
+        access_token_in_authorization_header: true
+        set_userorganization_header: true
+        session:
+          secret: "${{PLUGINCONFIG_NURSE_APP_SESSIONSECRET_KVB}}"
+      proxy-rewrite:
+        headers:
+          remove:
+            - "cookie"
+          set:
+            X-Tenant-Id: "kvb"
+
+  - id: pluginconfig-nurse-mailsplit
+    plugins:
+      openid-connect:
+        client_id: "${{PLUGINCONFIG_NURSE_MAILSPLIT_OIDCCLIENTID_KVB}}"
+        client_secret: "${{PLUGINCONFIG_NURSE_MAILSPLIT_OIDCCLIENTSECRET_KVB}}"
+        discovery: "https://kvb-testdev-nurse.healthmatch.cloud.vitaservices-dev.de/realms/testdev-healthmatch/.well-known/openid-configuration"
+        bearer_only: false
+        scope: "openid"
+        redirect_uri: "/callback/sso"
+        logout_path: "/logout"
+        post_logout_redirect_uri: "https://kvb-testdev-nurse.healthmatch.cloud.vitaservices-dev.de/"
+        access_token_in_authorization_header: true
+        set_userorganization_header: true
+        session:
+          secret: "${{PLUGINCONFIG_NURSE_MAILSPLIT_SESSIONSECRET_KVB}}"
+      proxy-rewrite:
+        headers:
+          remove:
+            - "cookie"
+          set:
+            X-Tenant-Id: "kvb"
+
+  - id: pluginconfig-nurse-api-KVB
+    plugins:
+      openid-connect:
+        client_id: "${{PLUGINCONFIG_NURSE_API_OIDCCLIENTID_KVB}}"
+        client_secret: "${{PLUGINCONFIG_NURSE_API_OIDCCLIENTSECRET_KVB}}"
+        discovery: "https://kvb-testdev-nurse.healthmatch.cloud.vitaservices-dev.de/realms/testdev-healthmatch/.well-known/openid-configuration"
+        bearer_only: false
+        scope: "openid"
+        redirect_uri: "/callback/sso"
+        logout_path: "/logout"
+        access_token_in_authorization_header: true
+        unauth_action: deny
+        session:
+          secret: "${{PLUGINCONFIG_NURSE_API_SESSIONSECRET_KVB}}"
+      proxy-rewrite:
+        regex_uri: [ "^/doctor-disponent/(document|core)/(.*)$", "/$2" ]
+        headers:
+          remove:
+            - "cookie"
+          set:
+            X-Tenant-Id: "kvb"
+
+consumers:
+  ######################################################################
+  # KVB Consumers                                                      #
+  ######################################################################
+  - username: consumer-doctor-KVB
+    plugins:
+      basic-auth:
+        username: ${{CONSUMER_DOCTOR_USERNAME_KVB}}
+        password: ${{CONSUMER_DOCTOR_PASSWORD_KVB}}
+
+  # seems not to be used
+  #- username: consumer-patient-KVB
+  #  plugins:
+  #    basic-auth:
+  #      username: ${{CONSUMER_PATIENT_USERNAME_KVB}}
+  #      password: ${{CONSUMER_PATIENT_PASSWORD_KVB}}
+
+  - username: consumer-nurse-KVB
+    plugins:
+      basic-auth:
+        username: ${{CONSUMER_NURSE_USERNAME_KVB}}
+        password: ${{CONSUMER_NURSE_PASSWORD_KVB}}
+
+upstreams:
+  ######################################################################
+  # KVB upstreams                                                      #
+  ######################################################################
+  - id: upstream-patient-KVB
+    scheme: https
+    nodes:
+      "patient-kvb.testdev:8443": 1
+    type: roundrobin
+
+  - id: upstream-doctor-KVB
+    scheme: https
+    nodes:
+      "doctor-kvb.testdev:8443": 1
+    type: roundrobin
+
+  - id: upstream-mail-KVB
+    scheme: http
+    nodes:
+      "mailrelay-kvb.testdev:1080": 1
+    type: roundrobin
+
+ssls:
+  ######################################################################
+  # KVB certificates                                                   #
+  ######################################################################
+  - cert:
+      file: kvb/tls.crt
+    key:
+      file: kvb/tls.key
+    snis:
+      - kvb-testdev-api.healthmatch.cloud.vitaservices-dev.de
+      - kvb-testdev-ucri.healthmatch.cloud.vitaservices-dev.de
+      - kvb-testdev-patient.healthmatch.cloud.vitaservices-dev.de
+      - kvb-testdev-doktor-disponent.healthmatch.cloud.vitaservices-dev.de
+      - kvb-testdev-argus.healthmatch.cloud.vitaservices-dev.de
+      - kvb-testdev-nurse.healthmatch.cloud.vitaservices-dev.de
+      - kvb-testdev-dashboards.healthmatch.cloud.vitaservices-dev.de

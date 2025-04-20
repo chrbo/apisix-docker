@@ -1,0 +1,357 @@
+routes:
+  ######################################################################
+  # AOKRPS API routes                                                  #
+  ######################################################################
+  - host: aokrps-testdev-api.healthmatch.cloud.vitaservices-dev.de
+    uri: "/realms/*"
+    vars:
+      - "AND"
+      - - "request_uri"
+        - "~~"
+        - '^/realms/testdev-aokrps(|/\.well-known/openid-configuration|/protocol/openid-connect/certs)$'
+      - - "request_method"
+        - "=="
+        - "GET"
+    upstream_id: upstream-keycloak
+
+  - host: aokrps-testdev-api.healthmatch.cloud.vitaservices-dev.de
+    uri: "/patient/core/*"
+    vars:
+      - "AND"
+      - - "uri"
+        - "=="
+        - "/patient/core/v1/patients/registration/resend-tan-code"
+      - - "request_method"
+        - "=="
+        - "POST"
+    plugin_config_id: pluginconfig-patient-AOKRPS
+    plugins:
+      limit-count:
+        count: 1
+        time_window: 60
+        key_type: var
+        key: remote_addr
+        policy: local
+        rejected_code: 429
+        rejected_msg: "Rate limit exceeded!"
+    upstream_id: upstream-apicore
+
+  - host: aokrps-testdev-api.healthmatch.cloud.vitaservices-dev.de
+    uri: "/patient/core/*"
+    vars:
+      - "OR"
+      - - "AND"
+        - - "OR"
+          - - "uri"
+            - "=="
+            - "/patient/core/v1/support/contact"
+          - - "uri"
+            - "=="
+            - "/patient/core/v1/patients/registration"
+          - - "uri"
+            - "=="
+            - "/patient/core/v1/patients/registration/resend-email"
+        - - "request_method"
+          - "=="
+          - "POST"
+      - - "AND"
+        - - "uri"
+          - "=="
+          - "/patient/core/v1/dispomed/validate"
+        - - "request_method"
+          - "=="
+          - "GET"
+    plugin_config_id: pluginconfig-patient-AOKRPS
+    plugins:
+      limit-count:
+        count: 1
+        time_window: 120
+        key_type: var_combination
+        key: "$remote_addr $uri"
+        policy: local
+        rejected_code: 429
+        rejected_msg: "Rate limit exceeded!"
+    upstream_id: upstream-apicore
+
+  - host: aokrps-testdev-api.healthmatch.cloud.vitaservices-dev.de
+    uri: "/patient/core/*"
+    plugin_config_id: pluginconfig-patient-AOKRPS
+    upstream_id: upstream-apicore
+
+  - host: aokrps-testdev-api.healthmatch.cloud.vitaservices-dev.de
+    uri: "/patient/document/*"
+    plugin_config_id: pluginconfig-patient-AOKRPS
+    upstream_id: upstream-apidocument
+
+  ######################################################################
+  # AOKRPS patient routes                                              #
+  ######################################################################
+  - host: aokrps-testdev-patient.healthmatch.cloud.vitaservices-dev.de
+    uri: "/realms/testdev-aokrps/*"
+    vars:
+      - "AND"
+      - - "uri"
+        - "=="
+        - "/realms/testdev-aokrps/login-actions/reset-credentials"
+      - - "request_method"
+        - "=="
+        - "POST"
+    plugins:
+      limit-count:
+        count: 6
+        time_window: 180
+        key_type: var
+        key: remote_addr
+        policy: local
+        rejected_code: 429
+        rejected_msg: "Rate limit exceeded!"
+    upstream_id: upstream-keycloak
+
+  - host: aokrps-testdev-patient.healthmatch.cloud.vitaservices-dev.de
+    uri: "/realms/testdev-aokrps/*"
+    plugins:
+      proxy-rewrite:
+        headers:
+          set:
+            X-FORWARDED-HOST: "aokrps-testdev-patient.healthmatch.cloud.vitaservices-dev.de"
+            X-FORWARDED-PORT: "443"
+            X-FORWARDED-PROTO: "https"
+    upstream_id: upstream-keycloak
+
+  - host: aokrps-testdev-patient.healthmatch.cloud.vitaservices-dev.de
+    uri: "/resources/*"
+    plugins:
+      proxy-rewrite:
+        headers:
+          set:
+            X-FORWARDED-HOST: "aokrps-testdev-patient.healthmatch.cloud.vitaservices-dev.de"
+            X-FORWARDED-PORT: "443"
+            X-FORWARDED-PROTO: "https"
+    upstream_id: upstream-keycloak
+
+  - host: aokrps-testdev-patient.healthmatch.cloud.vitaservices-dev.de
+    uri: /mailcatcher/*
+    enable_websocket: true
+    plugins:
+      basic-auth:
+        hide_credentials: true
+      consumer-restriction:
+        whitelist:
+          - consumer-patient-AOKRPS
+      response-rewrite:
+        headers:
+          set:
+            Content-Security-Policy: "frame-ancestors 'none';"
+    upstream_id: upstream-mail
+
+  - host: aokrps-testdev-patient.healthmatch.cloud.vitaservices-dev.de
+    uri: /*
+    plugins:
+      basic-auth:
+        hide_credentials: true
+      consumer-restriction:
+        whitelist:
+          - consumer-patient-AOKRPS
+      response-rewrite:
+        headers:
+          set:
+            Content-Security-Policy: "frame-ancestors 'none';"
+    upstream_id: upstream-patient-AOKRPS
+
+  ######################################################################
+  # AOKRPS doctors, disponents, admin routes                           #
+  ######################################################################
+  - host: aokrps-testdev-doktor-disponent.healthmatch.cloud.vitaservices-dev.de
+    uri: "/doctor-disponent/core/*"
+    plugin_config_id: pluginconfig-doctordisponent-api-AOKRPS
+    upstream_id: upstream-apicore
+
+  - host: aokrps-testdev-doktor-disponent.healthmatch.cloud.vitaservices-dev.de
+    uri: "/doctor-disponent/document/*"
+    plugin_config_id: pluginconfig-doctordisponent-api-AOKRPS
+    upstream_id: upstream-apidocument
+
+  - host: aokrps-testdev-doktor-disponent.healthmatch.cloud.vitaservices-dev.de
+    uri: /mailcatcher/*
+    enable_websocket: true
+    plugins:
+      basic-auth:
+        hide_credentials: true
+      consumer-restriction:
+        whitelist:
+          - consumer-doctor-AOKRPS
+      response-rewrite:
+        headers:
+          set:
+            Content-Security-Policy: "frame-ancestors 'none';"
+    upstream_id: upstream-mail
+
+  - host: aokrps-testdev-doktor-disponent.healthmatch.cloud.vitaservices-dev.de
+    uri: /assets/refresh-session-page/refresh-session-page.html
+    plugins:
+      response-rewrite:
+        headers:
+          set:
+            Content-Security-Policy: "frame-ancestors kvb-testdev-doktor-disponent.healthmatch.cloud.vitaservices-dev.de testdev-videosprechstunde.healthmatch.cloud.vitaservices-dev.de;"
+    plugin_config_id: pluginconfig-doctordisponent-app-AOKRPS
+    upstream_id: upstream-doctor-AOKRPS
+
+  - host: aokrps-testdev-doktor-disponent.healthmatch.cloud.vitaservices-dev.de
+    uri: /*
+    plugin_config_id: pluginconfig-doctordisponent-app-AOKRPS
+    upstream_id: upstream-doctor-AOKRPS
+
+  ######################################################################
+  # AOKRPS dashboard routes                                            #
+  ######################################################################
+  - host: aokrps-testdev-dashboards.healthmatch.cloud.vitaservices-dev.de
+    uri: /*
+    plugin_config_id: pluginconfig-dashboard-AOKRPS
+    upstream_id: upstream-dashboard
+    plugins:
+      limit-count:
+        count: 100
+        burst: 50
+        time_window: 1
+        key_type: var
+        key: remote_addr
+        policy: local
+        rejected_code: 429
+        rejected_msg: "Rate limit exceeded!"
+
+plugin_configs:
+  ######################################################################
+  # AOKRPS plugin_configs                                              #
+  ######################################################################
+  - id: pluginconfig-doctordisponent-app-AOKRPS
+    plugins:
+      openid-connect:
+        _meta:
+          filter:
+            - - "uri"
+              - "!"
+              - "~*"
+              - '^.*\.(js|js\.map|ico|css|css\.map|woff2|woff|json|svg|png|txt)$'
+        client_id: "${{PLUGINCONFIG_DOCTORDISPONENT_APP_OIDCCLIENTID_AOKRPS}}"
+        client_secret: "${{PLUGINCONFIG_DOCTORDISPONENT_APP_OIDCCLIENTSECRET_AOKRPS}}"
+        discovery: "https://aokrps-testdev-patient.healthmatch.cloud.vitaservices-dev.de/realms/testdev-aokrps/.well-known/openid-configuration"
+        bearer_only: false
+        scope: "openid"
+        redirect_uri: "/callback/sso"
+        logout_path: "/logout"
+        post_logout_redirect_uri: "https://aokrps-testdev-doktor-disponent.healthmatch.cloud.vitaservices-dev.de/"
+        access_token_in_authorization_header: true
+        session:
+          secret: "${{PLUGINCONFIG_DOCTORDISPONENT_APP_SESSIONSECRET_AOKRPS}}"
+      proxy-rewrite:
+        headers:
+          remove:
+            - "cookie"
+          set:
+            X-Tenant-Id: "aokrps"
+      response-rewrite:
+        headers:
+          set:
+            Content-Security-Policy: "frame-ancestors 'none';"
+
+  - id: pluginconfig-doctordisponent-api-AOKRPS
+    plugins:
+      openid-connect:
+        client_id: "${{PLUGINCONFIG_DOCTORDISPONENT_API_OIDCCLIENTID_AOKRPS}}"
+        client_secret: "${{PLUGINCONFIG_DOCTORDISPONENT_API_OIDCCLIENTSECRET_AOKRPS}}"
+        discovery: "https://aokrps-testdev-patient.healthmatch.cloud.vitaservices-dev.de/realms/testdev-aokrps/.well-known/openid-configuration"
+        bearer_only: false
+        scope: "openid"
+        redirect_uri: "/callback/sso"
+        logout_path: "/logout"
+        access_token_in_authorization_header: true
+        unauth_action: deny
+        session:
+          secret: "${{PLUGINCONFIG_DOCTORDISPONENT_API_SESSIONSECRET_AOKRPS}}"
+      proxy-rewrite:
+        regex_uri: [ "^/doctor-disponent/(document|core)/(.*)$", "/$2" ]
+        headers:
+          remove:
+            - "cookie"
+          set:
+            X-Tenant-Id: "aokrps"
+
+  # seems not to be used
+  #- id: pluginconfig-patient-AOKRPS
+  #  plugins:
+  #    cors:
+  #      allow_origins: "https://aokrps-testdev-patient.healthmatch.cloud.vitaservices-dev.de"
+  #    proxy-rewrite:
+  #      regex_uri: [ "^/patient/(document|core)/(.*)$", "/$2" ]
+  #      headers:
+  #        set:
+  #          X-Tenant-Id: "aokrps"
+
+  - id: pluginconfig-dashboard-AOKRPS
+    plugins:
+      openid-connect:
+        _meta:
+          filter:
+            - - "uri"
+              - "!"
+              - "~*"
+              - '^.*\.(js|js\.map|ico|css|css\.map|woff2|woff|json|svg|png|txt)$'
+        client_id: "${{PLUGINCONFIG_DASHBOARD_OIDCCLIENTID_AOKRPS}}"
+        client_secret: "${{PLUGINCONFIG_DASHBOARD_OIDCCLIENTSECRET_AOKRPS}}"
+        discovery: "https://aokrps-testdev-patient.healthmatch.cloud.vitaservices-dev.de/realms/testdev-aokrps/.well-known/openid-configuration"
+        bearer_only: false
+        scope: "openid"
+        redirect_uri: "/callback/sso"
+        logout_path: "/logout"
+        access_token_in_authorization_header: true
+        session:
+          secret: "${{PLUGINCONFIG_DASHBOARD_SESSIONSECRET_AOKRPS}}"
+      proxy-rewrite:
+        headers:
+          remove:
+            - "authorization"
+
+consumers:
+  ######################################################################
+  # AOKRPS consumers                                                   #
+  ######################################################################
+  - username: consumer-patient-AOKRPS
+    plugins:
+      basic-auth:
+        username: ${{CONSUMER_PATIENT_USERNAME_AOKRPS}}
+        password: ${{CONSUMER_PATIENT_PASSWORD_AOKRPS}}
+
+  - username: consumer-doctor-AOKRPS
+    plugins:
+      basic-auth:
+        username: ${{CONSUMER_DOCTOR_USERNAME_AOKRPS}}
+        password: ${{CONSUMER_DOCTOR_PASSWORD_AOKRPS}}
+
+upstreams:
+  ######################################################################
+  # AOKRPS upstreams                                                   #
+  ######################################################################
+  - id: upstream-patient-AOKRPS
+    scheme: https
+    nodes:
+      "patient-aokrps.testdev:8443": 1
+    type: roundrobin
+
+  - id: upstream-doctorAOKRPS
+    scheme: https
+    nodes:
+      "doctor-aokrps.testdev:8443": 1
+    type: roundrobin
+
+ssls:
+  ######################################################################
+  # AOKRPS certificates                                                #
+  ######################################################################
+  - cert:
+      file: aokrps/tls.crt
+    key:
+      file: aokrps/tls.key
+    snis:
+      - aokrps-testdev-api.healthmatch.cloud.vitaservices-dev.de
+      - aokrps-testdev-patient.healthmatch.cloud.vitaservices-dev.de
+      - aokrps-doktor-disponent.healthmatch.cloud.vitaservices-dev.de

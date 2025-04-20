@@ -1,0 +1,86 @@
+routes:
+  ######################################################################
+  # KVNO API routes                                                    #
+  ######################################################################
+  - host: kvno-testdev-api.healthmatch.cloud.vitaservices-dev.de
+    uri: /patient/core/*
+    vars:
+      - "OR"
+      - - "AND"
+        - - "OR"
+          - - "uri"
+            - "=="
+            - "/patient/core/v1/assessments/activate"
+          - - "uri"
+            - "=="
+            - "/patient/core/v1/assessments/callback/success"
+        - - "request_method"
+          - "=="
+          - "POST"
+      - - "AND"
+        - - "uri"
+          - "~~"
+          - "^/patient/core/v1/assessments/.+/offer$"
+        - - "request_method"
+          - "=="
+          - "GET"
+    plugins:
+      cors:
+        allow_origins: "https://kvno-testdev-patient.healthmatch.cloud.vitaservices-dev.de"
+      proxy-rewrite:
+        regex_uri: [ "^/patient/(document|core)/(.*)$", "/$2" ]
+        headers:
+          remove:
+            - "cookie"
+          set:
+            X-Tenant-Id: "kvno"
+    upstream_id: upstream-apicore
+
+  ######################################################################
+  # KVNO patient routes                                                #
+  ######################################################################
+  - host: kvno-testdev-patient.healthmatch.cloud.vitaservices-dev.de
+    uri: /*
+    plugins:
+      basic-auth:
+        hide_credentials: true
+      consumer-restriction:
+        whitelist:
+          - consumer-patient-KVNO
+      response-rewrite:
+        headers:
+          set:
+            Content-Security-Policy: "frame-ancestors 'none';"
+    upstream_id: upstream-patient-KVNO
+
+consumers:
+  ######################################################################
+  # KVNO consumers                                                     #
+  ######################################################################
+  - username: consumer-patient-KVNO
+    plugins:
+      basic-auth:
+        username: ${{CONSUMER_PATIENT_USERNAME_KVNO}}
+        password: ${{CONSUMER_PATIENT_PASSWORD_KVNO}}
+
+upstreams:
+  ######################################################################
+  # KVNO upstreams                                                     #
+  ######################################################################
+  - id: upstream-patient-KVNO
+    scheme: https
+    nodes:
+      "patient-kvno.testdev:8443": 1
+    type: roundrobin
+
+ssls:
+  ######################################################################
+  # KVNO certificates                                                  #
+  ######################################################################
+  - cert:
+      file: kvno/tls.crt
+    key:
+      file: kvno/tls.key
+    snis:
+      - kvno-testdev-api.healthmatch.cloud.vitaservices-dev.de
+      - kvno-testdev-patient.healthmatch.cloud.vitaservices-dev.de

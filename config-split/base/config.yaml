@@ -1,0 +1,149 @@
+######################################################################
+# Routes                                                             #
+######################################################################
+routes:
+  ######################################################################
+  # Common routes                                                      #
+  ######################################################################
+  - host: tracking-endpoint-testdev.healthmatch.cloud.vitaservices-dev.de
+    uri: /matomo.php
+    plugins:
+      cors:
+        allow_origins: "https://kvb-testdev-patient.healthmatch.cloud.vitaservices-dev.de/,https://kvb-testdev-doktor-disponent.healthmatch.cloud.vitaservices-dev.de/"
+    upstream_id: upstream-tracking
+
+  - host: tracking-endpoint-testdev.healthmatch.cloud.vitaservices-dev.de
+    uri: /matomo.js
+    plugins:
+      cors:
+        allow_origins: "https://kvb-testdev-patient.healthmatch.cloud.vitaservices-dev.de/,https://kvb-testdev-doktor-disponent.healthmatch.cloud.vitaservices-dev.de/"
+    upstream_id: upstream-tracking
+
+  - host: tracking-endpoint-testdev.healthmatch.cloud.vitaservices-dev.de
+    uri: /index.php
+    vars:
+      - "AND"
+      - - "arg_module"
+        - "=="
+        - "CoreAdminHome"
+      - - "arg_action"
+        - "=="
+        - "optOutJS"
+      - - "arg_divId"
+        - "=="
+        - "matomo-opt-out"
+      - - "arg_language"
+        - "=="
+        - "de"
+      - - "arg_showIntro"
+        - "=="
+        - "0"
+    plugins:
+      cors:
+        allow_origins: "https://kvb-testdev-patient.healthmatch.cloud.vitaservices-dev.de/,https://kvb-testdev-doktor-disponent.healthmatch.cloud.vitaservices-dev.de/"
+    upstream_id: upstream-tracking
+
+  - host: apm-test.healthmatch.cloud.vitaservices-dev.de
+    uri: /*
+    plugins:
+      cors:
+        allow_origins_by_regex: [".*.healthmatch.cloud.vitaservices-dev.de"]
+    upstream_id: upstream-apm
+
+######################################################################
+# Plugin configs                                                     #
+######################################################################
+plugin_configs:
+
+######################################################################
+# Consumers                                                          #
+######################################################################
+consumers:
+
+######################################################################
+# Upstreams                                                          #
+######################################################################
+upstreams:
+  ######################################################################
+  # Common upstreams                                                   #
+  ######################################################################
+  - id: upstream-keycloak
+    scheme: https
+    nodes:
+      "keycloak.testdev:8443": 1
+    type: roundrobin
+
+  - id: upstream-apicore
+    scheme: https
+    nodes:
+      "api.testdev:8443": 1
+    type: roundrobin
+
+  - id: upstream-apidocument
+    scheme: https
+    nodes:
+      "document.testdev:8443": 1
+    type: roundrobin
+
+  - id: upstream-mail
+    scheme: http
+    nodes:
+      "mailrelay.testdev:1080": 1
+    type: roundrobin
+
+  - id: upstream-tracking
+    scheme: https
+    nodes:
+      "matomo.testdev:443": 1
+    type: roundrobin
+
+  - id: upstream-dashboard
+    scheme: https
+    nodes:
+      "kibana-kb-http.shared-logging:5601": 1
+    type: roundrobin
+
+  - id: upstream-apm
+    scheme: https
+    nodes:
+      "elastic-cloud-on-k8s-eck-apm-server-apm-http.shared-logging:8200": 1
+    type: roundrobin
+
+######################################################################
+# Certificates                                                       #
+######################################################################
+ssls:
+  ######################################################################
+  # Common certificates                                                #
+  ######################################################################
+  - cert:
+      file: vitaservicesdev/tls.crt
+    key:
+      file: vitaservicesdev/tls.key
+    snis:
+      - healthmatch.cloud.vitaservices-dev.de
+      - tracking-endpoint-testdev.healthmatch.cloud.vitaservices-dev.de
+      - apm-test.healthmatch.cloud.vitaservices-dev.de
+######################################################################
+# Global rules                                                       #
+######################################################################
+global_rules:
+  ######################################################################
+  # Common global rules                                                #
+  ######################################################################
+  - id: 1
+    plugins:
+      response-rewrite:
+        headers:
+          remove:
+            - server
+      redirect:
+        http_to_https: true
+      limit-req:
+        rate: 10
+        burst: 20
+        key_type: var
+        key: remote_addr
+        rejected_code: 429
+        rejected_msg: "Rate limit exceeded!"
+#END
