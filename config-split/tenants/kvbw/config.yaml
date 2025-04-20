@@ -1,0 +1,528 @@
+routes:
+  ######################################################################
+  # KVBW API routes                                                    #
+  ######################################################################
+  - host: kvbw-testdev-api.healthmatch.cloud.vitaservices-dev.de
+    uri: "/realms/*"
+    vars:
+      - "AND"
+      - - "request_uri"
+        - "~~"
+        - '^/realms/testdev-kvbw(|/\.well-known/openid-configuration|/protocol/openid-connect/certs)$'
+      - - "request_method"
+        - "=="
+        - "GET"
+    upstream_id: upstream-keycloak
+
+  - host: kvbw-testdev-api.healthmatch.cloud.vitaservices-dev.de
+    uri: "/patient/core/*"
+    vars:
+      - "AND"
+      - - "uri"
+        - "=="
+        - "/patient/core/v1/patients/registration/resend-tan-code"
+      - - "request_method"
+        - "=="
+        - "POST"
+    plugin_config_id: pluginconfig-patient-KVBW
+    plugins:
+      limit-count:
+        count: 1
+        time_window: 60
+        key_type: var
+        key: remote_addr
+        policy: local
+        rejected_code: 429
+        rejected_msg: "Rate limit exceeded!"
+    upstream_id: upstream-apicore
+
+  - host: kvbw-testdev-api.healthmatch.cloud.vitaservices-dev.de
+    uri: "/patient/core/*"
+    vars:
+      - "OR"
+      - - "AND"
+        - - "OR"
+          - - "uri"
+            - "=="
+            - "/patient/core/v1/support/contact"
+          - - "uri"
+            - "=="
+            - "/patient/core/v1/patients/registration"
+          - - "uri"
+            - "=="
+            - "/patient/core/v1/patients/registration/resend-email"
+        - - "request_method"
+          - "=="
+          - "POST"
+      - - "AND"
+        - - "uri"
+          - "=="
+          - "/patient/core/v1/dispomed/validate"
+        - - "request_method"
+          - "=="
+          - "GET"
+    plugin_config_id: pluginconfig-patient-KVBW
+    plugins:
+      limit-count:
+        count: 1
+        time_window: 120
+        key_type: var_combination
+        key: "$remote_addr $uri"
+        policy: local
+        rejected_code: 429
+        rejected_msg: "Rate limit exceeded!"
+    upstream_id: upstream-apicore
+
+  - host: kvbw-testdev-api.healthmatch.cloud.vitaservices-dev.de
+    uri: "/patient/core/*"
+    plugin_config_id: pluginconfig-patient-KVBW
+    upstream_id: upstream-apicore
+
+  - host: kvbw-testdev-api.healthmatch.cloud.vitaservices-dev.de
+    uri: "/patient/document/*"
+    plugin_config_id: pluginconfig-patient-KVBW
+    upstream_id: upstream-apidocument
+
+  ######################################################################
+  # KVBW UCRI routes                                                   #
+  ######################################################################
+  - host: kvbw-testdev-ucri.healthmatch.cloud.vitaservices-dev.de
+    uri: "/api/authorize"
+    plugin_config_id: pluginconfig-ucriauthorize-KVBW
+    upstream_id: upstream-keycloak
+
+  - host: kvbw-testdev-ucri.healthmatch.cloud.vitaservices-dev.de
+    uri: "/realms/testdev-kvbw/.well-known/openid-configuration"
+    plugins:
+      proxy-rewrite:
+        headers:
+          set:
+            X-FORWARDED-HOST: "kvbw-testdev-ucri.healthmatch.cloud.vitaservices-dev.de"
+            X-FORWARDED-PORT: "443"
+            X-FORWARDED-PROTO: "https"
+    upstream_id: upstream-keycloak
+
+  - host: kvbw-testdev-ucri.healthmatch.cloud.vitaservices-dev.de
+    uri: "/realms/testdev-kvbw/protocol/openid-connect/certs"
+    plugins:
+      proxy-rewrite:
+        headers:
+          set:
+            X-FORWARDED-HOST: "kvbw-testdev-ucri.healthmatch.cloud.vitaservices-dev.de"
+            X-FORWARDED-PORT: "443"
+            X-FORWARDED-PROTO: "https"
+    upstream_id: upstream-keycloak
+
+  - host: kvbw-testdev-ucri.healthmatch.cloud.vitaservices-dev.de
+    uri: "/*"
+    vars:
+      - "OR"
+      - - "AND"
+        - - "request_uri"
+          - "~~"
+          - "^/api/incidents$"
+        - - "request_method"
+          - "=="
+          - "POST"
+      - - "AND"
+        - - "request_uri"
+          - "~~"
+          #- "^/api/incidents/%x%x%x%x%x%x%x%x%-%x%x%x%x%-%x%x%x%x%-%x%x%x%x%-%x%x%x%x%x%x%x%x%x%x%x%x/acknowledgments/(confirm|retrieved)$" if we are save that it is a guid
+          - "^/api/incidents/.+/acknowledgements/(confirm|retrieved)$"
+        - - "request_method"
+          - "=="
+          - "PUT"
+    plugin_config_id: pluginconfig-ucri-KVBW
+    upstream_id: upstream-apicore
+
+  ######################################################################
+  # KVBW patient routes                                                #
+  ######################################################################
+  - host: kvbw-testdev-patient.healthmatch.cloud.vitaservices-dev.de
+    uri: "/realms/testdev-kvbw/*"
+    vars:
+      - "AND"
+      - - "uri"
+        - "=="
+        - "/realms/testdev-kvbw/login-actions/reset-credentials"
+      - - "request_method"
+        - "=="
+        - "POST"
+    plugins:
+      limit-count:
+        count: 6
+        time_window: 180
+        key_type: var
+        key: remote_addr
+        policy: local
+        rejected_code: 429
+        rejected_msg: "Rate limit exceeded!"
+    upstream_id: upstream-keycloak
+
+  - host: kvbw-testdev-patient.healthmatch.cloud.vitaservices-dev.de
+    uri: "/realms/testdev-kvbw/*"
+    plugins:
+      proxy-rewrite:
+        headers:
+          set:
+            X-FORWARDED-HOST: "kvbw-testdev-patient.healthmatch.cloud.vitaservices-dev.de"
+            X-FORWARDED-PORT: "443"
+            X-FORWARDED-PROTO: "https"
+    upstream_id: upstream-keycloak
+
+  - host: kvbw-testdev-patient.healthmatch.cloud.vitaservices-dev.de
+    uri: "/resources/*"
+    plugins:
+      proxy-rewrite:
+        headers:
+          set:
+            X-FORWARDED-HOST: "kvbw-testdev-patient.healthmatch.cloud.vitaservices-dev.de"
+            X-FORWARDED-PORT: "443"
+            X-FORWARDED-PROTO: "https"
+    upstream_id: upstream-keycloak
+
+  - host: kvbw-testdev-patient.healthmatch.cloud.vitaservices-dev.de
+    uri: /mailcatcher/*
+    enable_websocket: true
+    plugins:
+      basic-auth:
+        hide_credentials: true
+      consumer-restriction:
+        whitelist:
+          - consumer-patient-KVBW
+      response-rewrite:
+        headers:
+          set:
+            Content-Security-Policy: "frame-ancestors 'none';"
+    upstream_id: upstream-mail
+
+  - host: kvbw-testdev-patient.healthmatch.cloud.vitaservices-dev.de
+    uri: /*
+    plugins:
+      basic-auth:
+        hide_credentials: true
+      consumer-restriction:
+        whitelist:
+          - consumer-patient-KVBW
+      response-rewrite:
+        headers:
+          set:
+            Content-Security-Policy: "frame-ancestors 'none';"
+    upstream_id: upstream-patient-KVBW
+
+  ######################################################################
+  # KVBW doctors routes                                                #
+  ######################################################################
+  - host: kvbw-testdev-doktor.healthmatch.cloud.vitaservices-dev.de
+    uri: "/doctor-disponent/core/*"
+    plugin_config_id: pluginconfig-doctordisponent-api-KVBW
+    upstream_id: upstream-apicore
+
+  - host: kvbw-testdev-doktor.healthmatch.cloud.vitaservices-dev.de
+    uri: "/doctor-disponent/document/*"
+    plugin_config_id: pluginconfig-doctordisponent-api-KVBW
+    upstream_id: upstream-apidocument
+
+  - host: kvbw-testdev-doktor.healthmatch.cloud.vitaservices-dev.de
+    uri: /mailcatcher/*
+    enable_websocket: true
+    plugins:
+      basic-auth:
+        hide_credentials: true
+      consumer-restriction:
+        whitelist:
+          - consumer-doctor-KVBW
+      response-rewrite:
+        headers:
+          set:
+            Content-Security-Policy: "frame-ancestors 'none';"
+    upstream_id: upstream-mail
+
+  - host: kvbw-testdev-doktor.healthmatch.cloud.vitaservices-dev.de
+    uri: /assets/refresh-session-page/refresh-session-page.html
+    plugins:
+      response-rewrite:
+        headers:
+          set:
+            Content-Security-Policy: "frame-ancestors 'self';"
+    plugin_config_id: pluginconfig-doctordisponent-app-KVBW
+    upstream_id: upstream-doctor-KVBW
+
+  - host: kvbw-testdev-doktor.healthmatch.cloud.vitaservices-dev.de
+    uri: /*
+    plugin_config_id: pluginconfig-doctordisponent-app-KVBW
+    upstream_id: upstream-doctor-KVBW
+
+  ######################################################################
+  # KVBW dummy argus (keycloak) idp routes                             #
+  ######################################################################
+  - host: kvbw-testdev-argus.healthmatch.cloud.vitaservices-dev.de
+    uri: /*
+    plugins:
+      proxy-rewrite:
+        headers:
+          set:
+            X-FORWARDED-HOST: kvbw-testdev-argus.healthmatch.cloud.vitaservices-dev.de
+            X-FORWARDED-PROTO: https
+            X-FORWARDED-PORT: 443
+    upstream_id: upstream-keycloak
+
+  ######################################################################
+  # KVBW disponent routes                                              #
+  ######################################################################
+  - host: kvbw-testdev-disponent.healthmatch.cloud.vitaservices-dev.de
+    uri: "/doctor-disponent/core/*"
+    plugin_config_id: pluginconfig-doctordisponent-api-KVBW
+    upstream_id: upstream-apicore
+
+  - host: kvbw-testdev-disponent.healthmatch.cloud.vitaservices-dev.de
+    uri: "/doctor-disponent/document/*"
+    plugin_config_id: pluginconfig-doctordisponent-api-KVBW
+    upstream_id: upstream-apidocument
+
+  - host: kvbw-testdev-disponent.healthmatch.cloud.vitaservices-dev.de
+    uri: /assets/app-settings.json
+    plugins:
+      proxy-rewrite:
+        headers:
+          remove:
+            - "accept-encoding"
+      response-rewrite:
+        filters:
+          - scope: "global"
+            regex: "kvbw-testdev-doktor.healthmatch.cloud.vitaservices-dev.de"
+            replace: "kvbw-testdev-disponent.healthmatch.cloud.vitaservices-dev.de"
+    plugin_config_id: pluginconfig-doctordisponent-app-KVBW
+    upstream_id: upstream-doctor-KVBW
+
+  - host: kvbw-testdev-disponent.healthmatch.cloud.vitaservices-dev.de
+    uri: /assets/refresh-session-page/refresh-session-page.html
+    plugins:
+      response-rewrite:
+        headers:
+          set:
+            Content-Security-Policy: "frame-ancestors 'self';"
+    plugin_config_id: pluginconfig-doctordisponent-app-KVBW
+    upstream_id: upstream-doctor-KVBW
+
+  - host: kvbw-testdev-disponent.healthmatch.cloud.vitaservices-dev.de
+    uri: /*
+    plugin_config_id: pluginconfig-doctordisponent-app-KVBW
+    upstream_id: upstream-doctor-KVBW
+
+  ######################################################################
+  # KVBW admin routes                                                  #
+  ######################################################################
+  - host: kvbw-testdev-admin.healthmatch.cloud.vitaservices-dev.de
+    uri: "/doctor-disponent/core/*"
+    plugin_config_id: pluginconfig-doctordisponent-api-KVBW
+    upstream_id: upstream-apicore
+
+  - host: kvbw-testdev-admin.healthmatch.cloud.vitaservices-dev.de
+    uri: "/doctor-disponent/document/*"
+    plugin_config_id: pluginconfig-doctordisponent-api-KVBW
+    upstream_id: upstream-apidocument
+
+  - host: kvbw-testdev-admin.healthmatch.cloud.vitaservices-dev.de
+    uri: /assets/app-settings.json
+    plugins:
+      proxy-rewrite:
+        headers:
+          remove:
+            - "accept-encoding"
+      response-rewrite:
+        filters:
+          - scope: "global"
+            regex: "kvbw-testdev-doktor.healthmatch.cloud.vitaservices-dev.de"
+            replace: "kvbw-testdev-admin.healthmatch.cloud.vitaservices-dev.de"
+    plugin_config_id: pluginconfig-doctordisponent-app-KVBW
+    upstream_id: upstream-doctor-KVBW
+
+  - host: kvbw-testdev-admin.healthmatch.cloud.vitaservices-dev.de
+    uri: /assets/refresh-session-page/refresh-session-page.html
+    plugins:
+      response-rewrite:
+        headers:
+          set:
+            Content-Security-Policy: "frame-ancestors 'self';"
+    plugin_config_id: pluginconfig-doctordisponent-app-KVBW
+    upstream_id: upstream-doctor-KVBW
+
+  - host: kvbw-testdev-admin.healthmatch.cloud.vitaservices-dev.de
+    uri: /*
+    plugin_config_id: pluginconfig-doctordisponent-app-KVBW
+    upstream_id: upstream-doctor-KVBW
+
+  ######################################################################
+  # KVBW dashboard routes                                              #
+  ######################################################################
+  - host: kvbw-testdev-dashboards.healthmatch.cloud.vitaservices-dev.de
+    uri: /*
+    plugin_config_id: pluginconfig-dashboard-KVBW
+    upstream_id: upstream-dashboard
+    plugins:
+      limit-count:
+        count: 100
+        burst: 50
+        time_window: 1
+        key_type: var
+        key: remote_addr
+        policy: local
+        rejected_code: 429
+        rejected_msg: "Rate limit exceeded!"
+
+plugin_configs:
+  ######################################################################
+  # KVBW plugin_configs                                                #
+  ######################################################################
+  - id: pluginconfig-doctordisponent-app-KVBW
+    plugins:
+      openid-connect:
+        _meta:
+          filter:
+            - - "uri"
+              - "!"
+              - "~*"
+              - '^.*\.(js|js\.map|ico|css|css\.map|woff2|woff|json|svg|png|txt)$'
+        client_id: "${{PLUGINCONFIG_DOCTORDISPONENT_APP_OIDCCLIENTID_KVBW}}"
+        client_secret: "${{PLUGINCONFIG_DOCTORDISPONENT_APP_OIDCCLIENTSECRET_KVBW}}"
+        discovery: "https://kvbw-testdev-argus.healthmatch.cloud.vitaservices-dev.de/realms/testdev-argus-kvbw/.well-known/openid-configuration"
+        bearer_only: false
+        scope: "openid"
+        redirect_uri: "/callback/sso"
+        logout_path: "/logout"
+        access_token_in_authorization_header: true
+        session:
+          secret: "${{PLUGINCONFIG_DOCTORDISPONENT_APP_SESSIONSECRET_KVBW}}"
+      proxy-rewrite:
+        headers:
+          remove:
+            - "cookie"
+          set:
+            X-Tenant-Id: "kvbw"
+      response-rewrite:
+        headers:
+          set:
+            Content-Security-Policy: "frame-ancestors 'none';"
+
+  - id: pluginconfig-doctordisponent-api-KVBW
+    plugins:
+      openid-connect:
+        client_id: "${{PLUGINCONFIG_DOCTORDISPONENT_API_OIDCCLIENTID_KVBW}}"
+        client_secret: "${{PLUGINCONFIG_DOCTORDISPONENT_API_OIDCCLIENTSECRET_KVBW}}"
+        discovery: "https://kvbw-testdev-argus.healthmatch.cloud.vitaservices-dev.de/realms/testdev-argus-kvbw/.well-known/openid-configuration"
+        bearer_only: false
+        scope: "openid"
+        redirect_uri: "/callback/sso"
+        logout_path: "/logout"
+        access_token_in_authorization_header: true
+        unauth_action: deny
+        session:
+          secret: "${{PLUGINCONFIG_DOCTORDISPONENT_API_SESSIONSECRET_KVBW}}"
+      proxy-rewrite:
+        regex_uri: [ "^/doctor-disponent/(document|core)/(.*)$", "/$2" ]
+        headers:
+          remove:
+            - "cookie"
+          set:
+            X-Tenant-Id: "kvbw"
+
+  # seems not to be used
+  #- id: pluginconfig-patient-app-KVBWKVBW
+  #  plugins:
+  #    cors:
+  #      allow_origins: "https://kvbw-testdev-patient.healthmatch.cloud.vitaservices-dev.de"
+  #    proxy-rewrite:
+  #      regex_uri: [ "^/patient/(document|core)/(.*)$", "/$2" ]
+  #      headers:
+  #        set:
+  #          X-Tenant-Id: "kvbw"
+
+  - id: pluginconfig-ucriauthorize-KVBW
+    plugins:
+      ucri-auth-2-oauth:
+        token_endpoint: "/realms/testdev-kvbw/protocol/openid-connect/token"
+
+  - id: pluginconfig-ucri-KVBW
+    plugins:
+      proxy-rewrite:
+        regex_uri: [ "^/api/(.*)$", "/v1/dispomed/$1" ]
+        headers:
+          set:
+            X-Tenant-Id: "kvbw"
+      # @todo rewrite paths in body
+
+  - id: pluginconfig-dashboard-KVBW
+    plugins:
+      openid-connect:
+        _meta:
+          filter:
+            - - "uri"
+              - "!"
+              - "~*"
+              - '^.*\.(js|js\.map|ico|css|css\.map|woff2|woff|json|svg|png|txt)$'
+        client_id: "${{PLUGINCONFIG_DASHBOARD_OIDCCLIENTID_KVBW}}"
+        client_secret: "${{PLUGINCONFIG_DASHBOARD_OIDCCLIENTSECRET_KVBW}}"
+        discovery: "https://kvbw-testdev-argus.healthmatch.cloud.vitaservices-dev.de/realms/testdev-argus-kvbw/.well-known/openid-configuration"
+        bearer_only: false
+        scope: "openid"
+        redirect_uri: "/callback/sso"
+        logout_path: "/logout"
+        access_token_in_authorization_header: true
+        session:
+          secret: "${{PLUGINCONFIG_DASHBOARD_SESSIONSECRET_KVBW}}"
+      proxy-rewrite:
+        headers:
+          remove:
+            - "authorization"
+
+consumers:
+  ######################################################################
+  # KVBW Consumers                                                     #
+  ######################################################################
+  - username: consumer-doctor-KVBW
+    plugins:
+      basic-auth:
+        username: ${{CONSUMER_BASICAUTH_DOCTOR_USERNAME}}
+        password: ${{CONSUMER_BASICAUTH_DOCTOR_PASSWORD}}
+
+  # seems not to be used
+  #- username: consumer-patient-KVBW
+  #  plugins:
+  #    basic-auth:
+  #      username: ${{CONSUMER_PATIENT_USERNAME_KVBW}}
+  #      password: ${{CONSUMER_PATIENT_PASSWORD_KVBW}}
+
+upstreams:
+  ######################################################################
+  # KVBW upstreams                                                     #
+  ######################################################################
+  - id: upstream-patient-KVBW
+    scheme: https
+    nodes:
+      "patient-kvbw.testdev:8443": 1
+    type: roundrobin
+
+  - id: upstream-doctor-KVBW
+    scheme: https
+    nodes:
+      "doctor-kvbw.testdev:8443": 1
+    type: roundrobin
+
+ssls:
+  ######################################################################
+  # KVBW certificates                                                  #
+  ######################################################################
+  - cert:
+      file: kvbw/tls.crt
+    key:
+      file: kvbw/tls.key
+    snis:
+      - kvbw-testdev-api.healthmatch.cloud.vitaservices-dev.de
+      - kvbw-testdev-ucri.healthmatch.cloud.vitaservices-dev.de
+      - kvbw-testdev-patient.healthmatch.cloud.vitaservices-dev.de
+      - kvbw-testdev-doktor.healthmatch.cloud.vitaservices-dev.de
+      - kvbw-testdev-disponent.healthmatch.cloud.vitaservices-dev.de
+      - kvbw-testdev-admin.healthmatch.cloud.vitaservices-dev.de
+      - kvbw-testdev-argus.healthmatch.cloud.vitaservices-dev.de
+      - kvbw-testdev-dashboards.healthmatch.cloud.vitaservices-dev.de

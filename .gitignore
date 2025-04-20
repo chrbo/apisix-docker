@@ -2,3 +2,4 @@
 .DS_Store
 ./package
 !compose/apisix_log/.gitkeep
+/config-split/apisix.yaml
