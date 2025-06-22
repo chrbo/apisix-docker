@@ -1,11 +1,16 @@
 ARG BASEIMAGE_VERSION=1.25.3.2-5-
 
-#FROM alpine-fat AS builder
-FROM --platform=linux/amd64 openresty/openresty:${BASEIMAGE_VERSION}alpine-fat AS builder
+FROM openresty/openresty:${BASEIMAGE_VERSION}alpine-fat AS builder
 
 RUN apk add --update --no-cache \
-    git pcre-dev openldap-dev \
-    openssl curl bash wget sudo
+    bash \
+    curl \
+    git \
+#    openldap-dev \
+    openssl \
+    pcre-dev \
+    sudo \
+    wget
 
 ARG APISIX_VERSION=3.7.0
 
@@ -15,6 +20,7 @@ RUN cd ~ \
     && tar -xzvf $APISIX_VERSION.tar.gz -C /usr/local/src \
     && rm -f $APISIX_VERSION.tar.gz
 
+# remove archived lualdap dependency
 RUN sed -i.bak '/^    "lualdap = 1.2.6-1",$/d' /usr/local/src/apisix-$APISIX_VERSION/rockspec/apisix-$APISIX_VERSION-0.rockspec \
     && sed -i.bak '/^    "lualdap = 1.2.6-1",$/d' /usr/local/src/apisix-$APISIX_VERSION/rockspec/apisix-master-0.rockspec
 
@@ -31,11 +37,13 @@ RUN cd /usr/local/src/apisix-$APISIX_VERSION \
     && cd / \
     && rm -Rf /usr/local/src
 
-#FROM alpine AS scratch
-FROM --platform=linux/amd64 openresty/openresty:${BASEIMAGE_VERSION}alpine AS scratch
+FROM openresty/openresty:${BASEIMAGE_VERSION}alpine AS runtime
 
 RUN apk add --update --no-cache \
-    openssl bash pcre openldap
+    bash \
+#    openldap \
+    openssl \
+    pcre
 
 COPY --from=builder /usr/local/apisix /usr/local/apisix
 COPY --from=builder /usr/local/openresty /usr/local/openresty
