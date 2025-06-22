@@ -1,4 +1,4 @@
-ARG BASEIMAGE_VERSION=1.25.3.1-1-
+ARG BASEIMAGE_VERSION=1.25.3.2-5-
 
 #FROM alpine-fat AS builder
 FROM --platform=linux/amd64 openresty/openresty:${BASEIMAGE_VERSION}alpine-fat AS builder
@@ -7,13 +7,16 @@ RUN apk add --update --no-cache \
     git pcre-dev openldap-dev \
     openssl curl bash wget sudo
 
-ARG APISIX_VERSION=3.6.0
+ARG APISIX_VERSION=3.7.0
 
 RUN cd ~ \
     && curl -s https://github.com/apache/apisix/archive/refs/tags/$APISIX_VERSION.tar.gz -L -o $APISIX_VERSION.tar.gz \
     && mkdir -p /usr/local/src \
     && tar -xzvf $APISIX_VERSION.tar.gz -C /usr/local/src \
     && rm -f $APISIX_VERSION.tar.gz
+
+RUN sed -i.bak '/^    "lualdap = 1.2.6-1",$/d' /usr/local/src/apisix-$APISIX_VERSION/rockspec/apisix-$APISIX_VERSION-0.rockspec \
+    && sed -i.bak '/^    "lualdap = 1.2.6-1",$/d' /usr/local/src/apisix-$APISIX_VERSION/rockspec/apisix-master-0.rockspec
 
 RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sudo sh -s -- -y \
     && source "$HOME/.cargo/env"
